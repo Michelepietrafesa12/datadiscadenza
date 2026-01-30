@@ -2,7 +2,7 @@
 <module>
     <name>datadiscadenza</name>
     <displayName><![CDATA[Data di Scadenza]]></displayName>
-    <version><![CDATA[1.0.0]]></version>
+    <version><![CDATA[1.0.1]]></version>
     <description><![CDATA[Aggiunge un campo data di scadenza ai prodotti e lo mostra nel frontend.]]></description>
     <author><![CDATA[Michelepietrafesa12]]></author>
     <tab><![CDATA[front_office_features]]></tab>

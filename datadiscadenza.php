@@ -17,7 +17,7 @@ class DataDiScadenza extends Module
     {
         $this->name = 'datadiscadenza';
         $this->tab = 'front_office_features';
-        $this->version = '1.0.0';
+        $this->version = '1.0.1';
         $this->author = 'Michelepietrafesa12';
         $this->need_instance = 0;
         $this->ps_versions_compliancy = ['min' => '8.0.0', 'max' => '8.99.99'];
@@ -25,8 +25,12 @@ class DataDiScadenza extends Module
 
         parent::__construct();
 
-        $this->displayName = $this->l('Data di Scadenza');
-        $this->description = $this->l('Aggiunge un campo data di scadenza ai prodotti e lo mostra nel frontend.');
+        $this->displayName = $this->trans('Data di Scadenza', [], 'Modules.Datadiscadenza.Admin');
+        $this->description = $this->trans(
+            'Aggiunge un campo data di scadenza ai prodotti e lo mostra nel frontend.',
+            [],
+            'Modules.Datadiscadenza.Admin'
+        );
     }
 
     public function install()
@@ -64,6 +68,26 @@ class DataDiScadenza extends Module
     }
 
     /**
+     * Extract product ID from hook params with multiple fallbacks for PS 8 compatibility.
+     */
+    private function extractProductId(array $params): int
+    {
+        if (!empty($params['id_product'])) {
+            return (int) $params['id_product'];
+        }
+
+        if (isset($params['product']) && is_object($params['product']) && !empty($params['product']->id)) {
+            return (int) $params['product']->id;
+        }
+
+        if (isset($params['product']) && is_array($params['product']) && !empty($params['product']['id_product'])) {
+            return (int) $params['product']['id_product'];
+        }
+
+        return 0;
+    }
+
+    /**
      * Get expiration date for a product.
      */
     public function getExpirationDate(int $idProduct): ?string
@@ -77,12 +101,30 @@ class DataDiScadenza extends Module
     }
 
     /**
+     * Validate date format (YYYY-MM-DD).
+     */
+    private function isValidDate(string $date): bool
+    {
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
+            return false;
+        }
+
+        $parts = explode('-', $date);
+
+        return checkdate((int) $parts[1], (int) $parts[2], (int) $parts[0]);
+    }
+
+    /**
      * Save expiration date for a product.
      */
     public function saveExpirationDate(int $idProduct, ?string $date): bool
     {
         if (empty($date)) {
             return Db::getInstance()->delete('product_expiration_date', '`id_product` = ' . (int) $idProduct);
+        }
+
+        if (!$this->isValidDate($date)) {
+            return false;
         }
 
         $exists = $this->getExpirationDate($idProduct);
@@ -108,7 +150,7 @@ class DataDiScadenza extends Module
      */
     public function hookDisplayAdminProductsExtra(array $params): string
     {
-        $idProduct = (int) ($params['id_product'] ?? 0);
+        $idProduct = $this->extractProductId($params);
         $expirationDate = $this->getExpirationDate($idProduct);
 
         $this->context->smarty->assign([
@@ -137,7 +179,7 @@ class DataDiScadenza extends Module
 
     private function processProductSave(array $params): void
     {
-        $idProduct = (int) ($params['id_product'] ?? 0);
+        $idProduct = $this->extractProductId($params);
         if (!$idProduct) {
             return;
         }
@@ -155,7 +197,11 @@ class DataDiScadenza extends Module
      */
     public function hookDisplayProductAdditionalInfo(array $params): string
     {
-        $idProduct = (int) ($params['product']['id_product'] ?? ($params['product']->id ?? 0));
+        $idProduct = $this->extractProductId($params);
+        if (!$idProduct) {
+            return '';
+        }
+
         $expirationDate = $this->getExpirationDate($idProduct);
 
         if (!$expirationDate) {
